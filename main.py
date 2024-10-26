@@ -1,7 +1,9 @@
 import os
 from PIL import Image
 from datetime import datetime
+import xml.etree.ElementTree as ET
 
+# Constants for grid widths
 STATIC_GRID_WIDTH = 16  
 DYNAMIC_GRID_WIDTH = 7   
 
@@ -36,19 +38,23 @@ def is_mask_image(image):
             non_transparent_pixel_count += 1
             if (r > 150 and g < 100 and b < 100) or (g > 150 and r < 100 and b < 100):
                 red_green_count += 1
-    
+
     if non_transparent_pixel_count == 0:
         return False
-    
+
     return red_green_count / non_transparent_pixel_count > 0.6
+
+# Tracks placed images for use in the XML update
+placed_images = {}
+dynamic_sheet_indices = {}  # To track index increments for dynamic sheets
 
 def process_images():
     timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
     output_folder = f"output-{timestamp}"
-    os.makedirs(output_folder, exist_ok=True)
-    
+    os.makedirs(output_folder, exist_ok=True)  
+
     print(f"Output directory: {output_folder}")
-    
+
     current_directory = os.getcwd()
 
     static_grids = {}  
@@ -85,6 +91,14 @@ def process_images():
 
                     place_sprite_on_grid(static_grid_data["grid_img"], img, grid_position, width)
                     static_filled_spots.add(grid_position)
+
+                    x, y = grid_position
+                    index = (y << 4) | x  
+
+                    placed_images[filename[:-4]] = {
+                        "sheet": f"static{width}",
+                        "index": f"0x{index:02x}"
+                    }
                 else:
                     if is_mask_image(img):
                         dynamic_type = "masks"
@@ -98,6 +112,7 @@ def process_images():
                         if dynamic_key not in dynamic_sheets:
                             dynamic_sheets[dynamic_key] = create_blank_dynamic_sheet(width, height)
                             dynamic_sheet_heights[dynamic_key] = height
+                            dynamic_sheet_indices[dynamic_key] = 0  # Initialize index counter for this sheet
                         else:
                             total_height = dynamic_sheet_heights[dynamic_key] + height
                             new_dynamic_sheet = create_blank_dynamic_sheet(width, total_height)
@@ -108,15 +123,81 @@ def process_images():
                         sheet_y_position = dynamic_sheet_heights[dynamic_key] - height
                         dynamic_sheets[dynamic_key].paste(img, (0, sheet_y_position))
 
+                        # Store dynamic sheet image index (increments from 0)
+                        placed_images[filename[:-4]] = {
+                            "sheet": f"{dynamic_type}_{width // 7}",
+                            "index": dynamic_sheet_indices[dynamic_key]
+                        }
+                        dynamic_sheet_indices[dynamic_key] += 1  # Increment index for next image
+
+    # Save the static sheets
     for cell_size, static_data in static_grids.items():
         output_filename_static = os.path.join(output_folder, f"static_{cell_size}.png")
         static_data["grid_img"].save(output_filename_static)
         print(f"static_{cell_size}.png has been generated.")
-    
+
+    # Save the dynamic sheets
     for (width, dynamic_type), dynamic_sheet in dynamic_sheets.items():
         output_filename_dynamic = os.path.join(output_folder, f"{dynamic_type}_{width // 7}.png")
         dynamic_sheet.save(output_filename_dynamic)
         print(f"{dynamic_type}_{width // 7}.png has been generated.")
 
+# Process the XML file
+def process_xml(xml_file):
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+
+        for obj in root.findall(".//Object"):
+            remote_texture = obj.find("RemoteTexture")
+            if remote_texture is not None:
+                texture_id = remote_texture.find("Id").text
+                if texture_id in placed_images:
+                    texture_info = placed_images[texture_id]
+
+                    if "skins" in texture_info["sheet"] or "enemies" in texture_info["sheet"] or "masks" in texture_info["sheet"]:
+                        # Dynamic sheet (enemies, skins, masks)
+                        texture_element = ET.Element("AnimatedTexture")
+                    else:
+                        # Static sheet
+                        texture_element = ET.Element("Texture")
+
+                    file_element = ET.SubElement(texture_element, "File")
+                    file_element.text = texture_info["sheet"]
+
+                    index_element = ET.SubElement(texture_element, "Index")
+                    index_element.text = str(texture_info["index"])
+
+                    obj.remove(remote_texture)
+                    obj.append(texture_element)
+
+        timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+        output_folder = f"output-{timestamp}"
+        os.makedirs(output_folder, exist_ok=True)  
+
+        output_filename = f"modified_{os.path.basename(xml_file)}"
+        output_filepath = os.path.join(output_folder, output_filename)
+        tree.write(output_filepath)
+        print(f"XML updated and saved as {output_filepath}")
+
+    except ET.ParseError as parse_err:
+        print(f"XML Parse Error: {parse_err}")
+    except Exception as e:
+        print(f"An error occurred while processing the XML: {e}")
+
 if __name__ == "__main__":
-    process_images()
+    try:
+        process_images()
+
+        xml_files = [f for f in os.listdir() if f.endswith(".xml")]
+
+        if xml_files:
+            xml_file = xml_files[0]  
+            process_xml(xml_file)  
+        else:
+            print("No XML file found. Only processed images.")
+            
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        input("Press Enter to close the program...")
