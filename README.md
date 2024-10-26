@@ -2,7 +2,7 @@
 
 A .py script for eliminating the use of remote textures in RotMG private servers. This script contains two main components.
 1. **Image processing:** If you open this script in a directory with remote image files, it will try and deduce whether it's a static image, skin, enemy, or mask. After doing so, it'll generate new sprite sheets and place them into their allocated index.
-2. **XML Parsing:** If you ALSO have an .xml attached, it will read the .xml, see if a static image has been put into a sprite sheet already, then edit the .xml accordingly to accomodate for the sprite sheet.
+2. **.xml parsing:** If you ALSO have an .xml attached, it will read the .xml, see if a static image has been put into a sprite sheet already, then edit the .xml accordingly to accomodate for the sprite sheet.
 
 ## this works with..
 - static images,
@@ -11,7 +11,7 @@ A .py script for eliminating the use of remote textures in RotMG private servers
 - skin masks.
 
 ## you will need..
-- python 3.x,
+- **python 3**_.x_,
 - **'pillow'** libary. `pip install pillow` 
 
 ## to use..
