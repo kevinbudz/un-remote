@@ -1,8 +1,8 @@
 # un-remote
 
 A .py script for eliminating the use of remote textures in RotMG private servers. This script contains two main components.
-1. **Image processing:** If you open this script in a directory with remote image files, it will try and deduce whether it's a static image, skin, enemy, or mask. After doing so, it'll generate new sprite sheets and place them into their allocated index.
-2. **.xml parsing:** If you ALSO have an .xml attached, it will read the .xml, see if a static image has been put into a sprite sheet already, then edit the .xml accordingly to accomodate for the sprite sheet.
+1. **Image processing:** If you open this script in a directory with remote image files, it will read each image and determine whether it's a static object, skin, enemy, or mask. After doing so, it'll generate new sprite sheets and/or place them into their allocated index.
+2. **.xml parsing:** If you ALSO have an .xml attached, it will read the .xml, check if any already loaded filenames match with the `<RemoteTexture>` id, then replace them with appropriate `<Texture>` or `</AnimatedTexture>` tags.
 
 ## this works with..
 - static images,
